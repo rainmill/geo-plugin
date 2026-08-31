@@ -1,0 +1,32 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Formatting and lints. Laterite is unpublished, so it is checked out beside this
+# repo to satisfy the path dependency. This plugin requires PostGIS, so its test
+# suite (arriving with the first migrations) runs against Postgres+PostGIS.
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: rainmill-geo
+      # Adjust the slug if the Laterite repository is named differently.
+      - uses: actions/checkout@v4
+        with:
+          repository: lateritecmf/laterite
+          path: laterite
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rainmill-geo
+      - run: cargo fmt --all --check
+        working-directory: rainmill-geo
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: rainmill-geo

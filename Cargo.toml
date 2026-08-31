@@ -1,0 +1,12 @@
+[package]
+name = "rainmill-geo"
+version = "0.1.0"
+description = "Rainmill Geo: PostGIS geometry, point-in-polygon, and nearest-neighbour primitives for Laterite"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/lateritecmf/rainmill-geo"
+
+[dependencies]
+# Laterite is unpublished and consumed by path in development (a Laterite
+# checkout sits beside this repo); the version is emitted when publishing.
+laterite-core = { path = "../laterite/crates/core", version = "0.2" }
