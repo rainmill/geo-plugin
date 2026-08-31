@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Rainmill Geo: PostGIS geometry, point-in-polygon, and nearest-neighbour primitives for Laterite"
 edition = "2021"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/lateritecmf/rainmill-geo"
+repository = "https://github.com/rainmill/geo-plugin"
 
 [dependencies]
 # Laterite is unpublished and consumed by path in development (a Laterite

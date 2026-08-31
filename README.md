@@ -9,7 +9,7 @@ It works two ways: as **helpers over your own geometry column** (you own the
 table, the plugin provides the operations), and as an optional **generic shape
 store** for apps that would rather not manage geometry columns themselves. It
 knows nothing about any particular domain and composes with
-[Rainmill Location](https://github.com/lateritecmf/rainmill-location) by foreign
+[Rainmill Location](https://github.com/rainmill/location-plugin) by foreign
 key.
 
 ## Requirements
