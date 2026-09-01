@@ -5,11 +5,11 @@
 //! type. Coordinates are WGS 84 lon/lat (SRID 4326); distances are metres,
 //! measured on the spheroid via PostGIS `geography`.
 //!
-//! This is the coherent first set of operations (the ones an app pulls first:
-//! store a shape, read it, point-in-polygon, nearest-neighbour, distance,
-//! within-radius). Measurement and transform helpers (area, length, centroid,
-//! buffer) and the "helpers over your own geometry column" form follow as they
-//! are exercised.
+//! The core toolkit over the shape store: store and read (GeoJSON and WKT),
+//! point-in-polygon, nearest-neighbour, distance, within-radius, and the
+//! measurement/transform helpers (area, length, centroid, buffer). The "helpers
+//! over your own geometry column" delivery model (for an app that owns its
+//! geometry column rather than using this store) follows as it is exercised.
 
 use laterite_core::Db;
 use sqlx::Row;
@@ -121,6 +121,78 @@ pub async fn within_radius(
     rows.iter().map(|r| r.try_get::<i64, _>("id")).collect()
 }
 
+/// The area of a shape in square metres (0 for non-areal geometry), or `None` if
+/// no such shape. Measured on the spheroid via `geography`.
+pub async fn area(db: &Db, id: i64) -> Result<Option<f64>, sqlx::Error> {
+    let row =
+        sqlx::query("SELECT ST_Area(geom::geography) AS v FROM rainmill_geo_shape WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&db.pool)
+            .await?;
+    row.map(|r| r.try_get::<f64, _>("v")).transpose()
+}
+
+/// The length of a shape in metres (0 for non-linear geometry), or `None` if no
+/// such shape. Measured on the spheroid via `geography`.
+pub async fn length(db: &Db, id: i64) -> Result<Option<f64>, sqlx::Error> {
+    let row =
+        sqlx::query("SELECT ST_Length(geom::geography) AS v FROM rainmill_geo_shape WHERE id = $1")
+            .bind(id)
+            .fetch_optional(&db.pool)
+            .await?;
+    row.map(|r| r.try_get::<f64, _>("v")).transpose()
+}
+
+/// The centroid of a shape as a GeoJSON point, or `None` if no such shape.
+pub async fn centroid_geojson(db: &Db, id: i64) -> Result<Option<String>, sqlx::Error> {
+    let row = sqlx::query(
+        "SELECT ST_AsGeoJSON(ST_Centroid(geom)) AS gj FROM rainmill_geo_shape WHERE id = $1",
+    )
+    .bind(id)
+    .fetch_optional(&db.pool)
+    .await?;
+    row.map(|r| r.try_get::<String, _>("gj")).transpose()
+}
+
+/// A buffer of `meters` around a shape, as a GeoJSON polygon, or `None` if no
+/// such shape. Buffered on the spheroid (geography), so the distance is metres.
+pub async fn buffer_geojson(db: &Db, id: i64, meters: f64) -> Result<Option<String>, sqlx::Error> {
+    let row = sqlx::query(
+        "SELECT ST_AsGeoJSON(ST_Buffer(geom::geography, $1)::geometry) AS gj \
+         FROM rainmill_geo_shape WHERE id = $2",
+    )
+    .bind(meters)
+    .bind(id)
+    .fetch_optional(&db.pool)
+    .await?;
+    row.map(|r| r.try_get::<String, _>("gj")).transpose()
+}
+
+/// Stores a shape from WKT (well-known text), returning its id.
+pub async fn insert_shape_wkt(db: &Db, kind: &str, wkt: &str) -> Result<i64, sqlx::Error> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let row = sqlx::query(
+        "INSERT INTO rainmill_geo_shape (kind, geom, created_at, updated_at) \
+         VALUES ($1, ST_GeomFromText($2, 4326), $3, $3) \
+         RETURNING id",
+    )
+    .bind(kind)
+    .bind(wkt)
+    .bind(&now)
+    .fetch_one(&db.pool)
+    .await?;
+    row.try_get::<i64, _>("id")
+}
+
+/// Reads a shape's geometry back as WKT, or `None` if no such shape.
+pub async fn shape_wkt(db: &Db, id: i64) -> Result<Option<String>, sqlx::Error> {
+    let row = sqlx::query("SELECT ST_AsText(geom) AS wkt FROM rainmill_geo_shape WHERE id = $1")
+        .bind(id)
+        .fetch_optional(&db.pool)
+        .await?;
+    row.map(|r| r.try_get::<String, _>("wkt")).transpose()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -228,6 +300,42 @@ mod tests {
             vec![id]
         );
         assert!(distance(db, id, 77.6, 12.95).await.unwrap().unwrap() < 1.0);
+
+        env.cleanup().await;
+    }
+
+    #[tokio::test]
+    async fn measurement_transform_and_wkt_ops() {
+        let Some(env) = postgis_db().await else {
+            eprintln!("skipping: set LATERITE_TEST_DATABASE_URL to a Postgres URL to run");
+            return;
+        };
+        let db = &env.db;
+        // The same square, stored via WKT this time.
+        let wkt = "POLYGON((77.5 12.9, 77.7 12.9, 77.7 13.0, 77.5 13.0, 77.5 12.9))";
+        let id = insert_shape_wkt(db, "zone", wkt).await.unwrap();
+
+        // WKT round-trips.
+        assert!(shape_wkt(db, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .starts_with("POLYGON"));
+        // A degree-sized square is a large area in square metres; a polygon has
+        // no length.
+        assert!(area(db, id).await.unwrap().unwrap() > 1_000_000.0);
+        assert_eq!(length(db, id).await.unwrap().unwrap(), 0.0);
+        // Centroid is a point; a buffer is a polygon.
+        assert!(centroid_geojson(db, id)
+            .await
+            .unwrap()
+            .unwrap()
+            .contains("Point"));
+        assert!(buffer_geojson(db, id, 500.0)
+            .await
+            .unwrap()
+            .unwrap()
+            .contains("Polygon"));
 
         env.cleanup().await;
     }
