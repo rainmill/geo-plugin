@@ -6,16 +6,30 @@
 //! tree; an app composes it with the Rainmill Location plugin by foreign key.
 //!
 //! Requires the `postgis` database capability, declared below and checked at
-//! boot. The geometry helpers, queries, and GeoJSON support land incrementally.
+//! boot. Measurement/transform helpers and the "over your own column" form land
+//! incrementally on top of this first query set (see [`store`]).
 
-use laterite_core::{Capability, Module, ModuleId};
+mod migrations;
+pub mod store;
+
+use laterite_core::{Capability, MigrationSet, Module, ModuleId};
+
+/// This plugin's entry point. Every Laterite plugin exposes `module()`, so the
+/// generated `plugins-manifest` collects it without naming the type.
+pub fn module() -> Box<dyn Module> {
+    Box::new(GeoModule)
+}
 
 /// The Rainmill Geo plugin.
 pub struct GeoModule;
 
 impl Module for GeoModule {
     fn id(&self) -> ModuleId {
-        ModuleId::new("rainmill.geo")
+        ModuleId::new(migrations::MODULE_ID)
+    }
+
+    fn migrations(&self) -> MigrationSet {
+        migrations::migrations()
     }
 
     fn requires_db_capabilities(&self) -> &'static [Capability] {

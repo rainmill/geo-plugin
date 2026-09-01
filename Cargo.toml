@@ -10,3 +10,21 @@ repository = "https://github.com/rainmill/geo-plugin"
 # Laterite is unpublished and consumed by path in development (a Laterite
 # checkout sits beside this repo); the version is emitted when publishing.
 laterite-core = { path = "../laterite/crates/core", version = "0.2" }
+# The migration builds its DDL with the sea-query schema builder (the Laterite
+# migration idiom), using sea-query's custom-type/custom-index escapes for the
+# PostGIS geometry column and GiST index. The Iden derive's generated code
+# references the sea_query crate directly, so it is a direct dependency.
+sea-query = { version = "0.32", features = ["derive"] }
+# Spatial queries run parameterized PostGIS SQL through sqlx's portable Any pool
+# (the app supplies the pool); geometry crosses the boundary as GeoJSON/WKT text.
+sqlx = { version = "0.8", default-features = false, features = ["runtime-tokio", "tls-rustls", "any"] }
+# Text timestamps on stored shapes (the framework stores times as ISO strings).
+chrono = { version = "0.4", default-features = false, features = ["clock"] }
+
+[dev-dependencies]
+# Tests run against a real Postgres+PostGIS (this plugin requires PostGIS, so it
+# cannot use the SQLite harness). The postgres feature compiles in the driver so
+# the Any pool can reach Postgres; tests self-skip when no Postgres URL is set.
+laterite-core = { path = "../laterite/crates/core", features = ["postgres"] }
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+uuid = { version = "1", features = ["v4"] }

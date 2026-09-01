@@ -5,9 +5,10 @@ on:
     branches: [main]
   pull_request:
 
-# Formatting and lints. Laterite is unpublished, so it is checked out beside this
-# repo to satisfy the path dependency. This plugin requires PostGIS, so its test
-# suite (arriving with the first migrations) runs against Postgres+PostGIS.
+# Formatting/lints plus the spatial test suite. Laterite is unpublished, so it is
+# checked out beside this repo to satisfy the path dependency. This plugin
+# requires PostGIS, so the test job runs against a Postgres+PostGIS service; the
+# spatial tests self-skip when no Postgres URL is set.
 jobs:
   lint:
     runs-on: ubuntu-latest
@@ -30,3 +31,36 @@ jobs:
         working-directory: rainmill-geo
       - run: cargo clippy --workspace --all-targets -- -D warnings
         working-directory: rainmill-geo
+
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: rainmill-geo
+      - uses: actions/checkout@v4
+        with:
+          repository: lateritecmf/laterite
+          path: laterite
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rainmill-geo
+      - run: cargo test --all-targets
+        working-directory: rainmill-geo
+        env:
+          # The maintenance database the tests create ephemeral PostGIS databases
+          # from; the postgis/postgis image can CREATE EXTENSION postgis.
+          LATERITE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
