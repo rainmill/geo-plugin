@@ -9,7 +9,7 @@ repository = "https://github.com/rainmill/geo-plugin"
 [dependencies]
 # Laterite is unpublished and consumed by path in development (a Laterite
 # checkout sits beside this repo); the version is emitted when publishing.
-laterite-core = { path = "../laterite/crates/core", version = "0.4" }
+laterite-core = { path = "../laterite/crates/core", version = "0.5" }
 # The migration builds its DDL with the sea-query schema builder (the Laterite
 # migration idiom), using sea-query's custom-type/custom-index escapes for the
 # PostGIS geometry column and GiST index. The Iden derive's generated code
