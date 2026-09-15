@@ -10,6 +10,7 @@
 //! incrementally on top of this first query set (see [`store`]).
 
 mod migrations;
+mod schema;
 pub mod store;
 
 use laterite_core::{Capability, MigrationSet, Module, ModuleId};

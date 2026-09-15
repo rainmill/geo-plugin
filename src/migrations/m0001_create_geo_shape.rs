@@ -1,39 +1,16 @@
-//! This plugin's migrations, in apply order.
-//!
-//! Built with the sea-query schema builder, the same idiom as every other
-//! module's migration. Only the two irreducibly-PostGIS bits use sea-query's own
-//! escapes: the geometry column via a custom column type, and the GiST index via
-//! a custom index type. The `postgis` extension itself is provided by the
-//! deployment (the declared capability is verified at boot), not created here.
+//! Create the generic shape store.
 
 use laterite_core::strata::*;
+// The two irreducibly-PostGIS bits need sea-query's own escapes: the geometry
+// column type and the GiST index type.
 use sea_query::{Alias, IndexType, IntoIden};
 
-/// This plugin's module id.
-pub const MODULE_ID: &str = "rainmill.geo";
+use crate::schema::RainmillGeoShape;
 
-/// The migration set for the geo tables.
-pub fn migrations() -> MigrationSet {
-    MigrationSet::new(MODULE_ID, vec![Box::new(CreateGeoShape)])
-}
-
-/// The generic shape store: one row per geometry, in SRID 4326 (WGS 84 lon/lat).
-/// Apps that own their own geometry column use the query helpers directly instead
-/// of this table.
-#[derive(Iden)]
-enum RainmillGeoShape {
-    Table,
-    Id,
-    Kind,
-    Geom,
-    CreatedAt,
-    UpdatedAt,
-}
-
-struct CreateGeoShape;
+pub struct Migration;
 
 #[async_trait(?Send)]
-impl Migration for CreateGeoShape {
+impl laterite_core::Migration for Migration {
     fn name(&self) -> &str {
         "0001_create_geo_shape"
     }
