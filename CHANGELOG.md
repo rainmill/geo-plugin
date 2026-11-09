@@ -7,6 +7,8 @@ bump is breaking and a patch is additive.
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-11-10
+
 ### Added
 
 - First release. Spatial queries for Laterite: shapes and points, point-in-polygon, nearest and within-radius, area and distance, GeoJSON and WKT.
