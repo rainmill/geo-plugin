@@ -11,6 +11,7 @@
 //! over your own geometry column" delivery model (for an app that owns its
 //! geometry column rather than using this store) follows as it is exercised.
 
+use laterite_core::sqlx;
 use laterite_core::Db;
 use sqlx::Row;
 

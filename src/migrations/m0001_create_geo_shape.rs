@@ -1,5 +1,6 @@
 //! Create the generic shape store.
 
+use laterite_core::sea_query;
 use laterite_core::strata::*;
 // The two irreducibly-PostGIS bits need sea-query's own escapes: the geometry
 // column type and the GiST index type.
